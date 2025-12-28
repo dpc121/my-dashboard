@@ -36,6 +36,7 @@ th{background:#020617}
 .pass-row{text-align:left}
 .pass-row input{width:120px}
 .small{font-size:12px;color:#94a3b8}
+a{color:#38bdf8;text-decoration:none}
 </style>
 </head>
 
@@ -69,6 +70,7 @@ th{background:#020617}
 
 <div class="card">
 <input id="site" placeholder="Website Name">
+<input id="url" placeholder="Website URL (https://...)">
 <input id="uid" placeholder="User ID">
 
 <select id="cat" onchange="togglePwdFields()">
@@ -245,6 +247,7 @@ function togglePwdFields(){
 function saveEntry(){
   let d={
     site:site.value,
+    url:url.value,
     uid:enc(uid.value),
     cat:cat.value,
     pwd1:enc(pwd1.value),
@@ -269,6 +272,7 @@ function editRow(i){
   editIndex=i;
   formTitle.innerText="✏ Edit Website";
   site.value=d.site;
+  url.value=d.url||"";
   uid.value=dec(d.uid);
   cat.value=d.cat;
   togglePwdFields();
@@ -289,7 +293,7 @@ function cancelEdit(){
 
 /* ================= CLEAR ================= */
 function clearForm(){
-  site.value=uid.value=pwd1.value=pwd2.value=pwd3.value="";
+  site.value=url.value=uid.value=pwd1.value=pwd2.value=pwd3.value="";
 }
 
 /* ================= DELETE ================= */
@@ -350,11 +354,19 @@ function importBackup(file){
 /* ================= RENDER ================= */
 function render(){
   tbl.innerHTML=`
-  <tr><th>Website</th><th>User ID</th><th>Passwords</th><th>Action</th></tr>`;
+  <tr>
+    <th>Website</th>
+    <th>Open</th>
+    <th>User ID</th>
+    <th>Passwords</th>
+    <th>Action</th>
+  </tr>`;
+
   sites.forEach((d,i)=>{
     tbl.innerHTML+=`
     <tr>
       <td>${d.site}</td>
+      <td>${d.url?`<a href="${d.url}" target="_blank">Open</a>`:"-"}</td>
       <td class="copy" onclick="copy('${dec(d.uid)}')">${dec(d.uid)}</td>
       <td class="pass-row">
         Login:
