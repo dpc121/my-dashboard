@@ -13,18 +13,29 @@ h2,h3{margin:6px 0}
 input,select,button{
   padding:8px;margin:4px;border-radius:6px;border:none
 }
-input,select{background:#020617;color:#fff;border:1px solid #334155}
-button{background:#2563eb;color:#fff;font-weight:bold;cursor:pointer}
+input,select{
+  background:#020617;color:#fff;border:1px solid #334155
+}
+button{
+  background:#2563eb;color:#fff;font-weight:bold;cursor:pointer
+}
 table{width:100%;border-collapse:collapse;margin-top:10px}
-th,td{border:1px solid #334155;padding:6px;text-align:center;vertical-align:top}
+th,td{
+  border:1px solid #334155;
+  padding:6px;
+  text-align:center;
+  vertical-align:top
+}
 th{background:#020617}
 .hide{display:none}
-.btn{padding:5px 8px;font-size:12px}
+.btn{padding:5px 8px;font-size:12px;margin:2px}
 .red{background:#dc2626}
 .green{background:#16a34a}
 .gray{background:#475569}
 .copy{cursor:pointer;color:#38bdf8}
 .small{font-size:12px;color:#94a3b8}
+.pass-row{text-align:left}
+.pass-row input{width:120px}
 </style>
 </head>
 
@@ -43,7 +54,7 @@ th{background:#020617}
 <button class="gray" onclick="openForgot()">Forgot Password</button>
 </div>
 
-<!-- FORGOT PASSWORD -->
+<!-- FORGOT -->
 <div class="card hide" id="forgotBox">
 <h3>🔁 Reset Password</h3>
 <input id="fpUser" placeholder="Username">
@@ -58,7 +69,6 @@ th{background:#020617}
 
 <div class="card">
 <input id="site" placeholder="Website Name">
-<input id="url" placeholder="Website URL">
 <input id="uid" placeholder="User ID">
 
 <select id="cat" onchange="togglePwdFields()">
@@ -96,7 +106,7 @@ let sites=[];
 let editIndex=null;
 
 /* ===== AUTO LOGIN ===== */
-window.onload=function(){
+window.onload=()=>{
   let u=localStorage.getItem("rememberUser");
   let t=localStorage.getItem("rememberTime");
   if(u && t && (Date.now()-t)/(1000*60*60*24)<=30){
@@ -138,7 +148,7 @@ function logout(){
   location.reload();
 }
 
-/* ===== FORGOT PASSWORD ===== */
+/* ===== FORGOT ===== */
 function openForgot(){
   loginBox.classList.add("hide");
   forgotBox.classList.remove("hide");
@@ -148,13 +158,10 @@ function closeForgot(){
   loginBox.classList.remove("hide");
 }
 function resetPassword(){
-  let u=fpUser.value.trim();
-  let p=fpPass.value.trim();
+  let u=fpUser.value.trim(), p=fpPass.value.trim();
   if(!u||!p) return alert("Fill all");
-
   let users=JSON.parse(localStorage.getItem("users")||"{}");
   if(!users[u]) return alert("User not found");
-
   users[u]=enc(p);
   localStorage.setItem("users",JSON.stringify(users));
   alert("Password Reset Successful");
@@ -171,7 +178,6 @@ function togglePwdFields(){
 function saveEntry(){
   let data={
     site:site.value,
-    url:url.value,
     uid:enc(uid.value),
     cat:cat.value,
     pwd1:enc(pwd1.value),
@@ -180,12 +186,12 @@ function saveEntry(){
   };
 
   if(editIndex!==null){
-    sites[editIndex]=data;   // UPDATE
+    sites[editIndex]=data;
     editIndex=null;
     formTitle.innerText="➕ Add Website";
     cancelBtn.classList.add("hide");
   }else{
-    sites.push(data);        // ADD
+    sites.push(data);
   }
 
   persist();
@@ -197,16 +203,13 @@ function editRow(i){
   let d=sites[i];
   editIndex=i;
   formTitle.innerText="✏ Edit Website";
-
   site.value=d.site;
-  url.value=d.url;
   uid.value=dec(d.uid);
   cat.value=d.cat;
   togglePwdFields();
   pwd1.value=dec(d.pwd1);
   pwd2.value=dec(d.pwd2||"");
   pwd3.value=dec(d.pwd3||"");
-
   cancelBtn.classList.remove("hide");
   window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -221,7 +224,7 @@ function cancelEdit(){
 
 /* ===== CLEAR ===== */
 function clearForm(){
-  site.value=url.value=uid.value=pwd1.value=pwd2.value=pwd3.value="";
+  site.value=uid.value=pwd1.value=pwd2.value=pwd3.value="";
 }
 
 /* ===== DELETE ===== */
@@ -242,13 +245,19 @@ function persist(){
 function search(v){
   v=v.toLowerCase();
   [...tbl.rows].forEach((r,i)=>{
-    if(i===0) return;
+    if(i===0)return;
     r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
   });
 }
 
 /* ===== COPY ===== */
 const copy=t=>{navigator.clipboard.writeText(t);alert("Copied");};
+
+/* ===== SHOW / HIDE ===== */
+function toggleShow(id){
+  let el=document.getElementById(id);
+  el.type = el.type==="password" ? "text" : "password";
+}
 
 /* ===== RENDER ===== */
 function render(){
@@ -264,12 +273,33 @@ function render(){
     tbl.innerHTML+=`
     <tr>
       <td>${d.site}</td>
-      <td class="copy" onclick="copy('${dec(d.uid)}')">${dec(d.uid)}</td>
-      <td>
-        Login <button class="btn" onclick="copy('${dec(d.pwd1)}')">Copy</button><br>
-        ${d.pwd2?`Profile <button class="btn" onclick="copy('${dec(d.pwd2)}')">Copy</button><br>`:""}
-        ${d.pwd3?`Txn <button class="btn" onclick="copy('${dec(d.pwd3)}')">Copy</button>`:""}
+
+      <td class="copy" onclick="copy('${dec(d.uid)}')">
+        ${dec(d.uid)}
       </td>
+
+      <td class="pass-row">
+        Login:
+        <input type="password" id="lp${i}" value="${dec(d.pwd1)}" readonly>
+        <button class="btn gray" onclick="toggleShow('lp${i}')">Show</button>
+        <button class="btn" onclick="copy('${dec(d.pwd1)}')">Copy</button>
+        <br>
+
+        ${d.pwd2 ? `
+        Profile:
+        <input type="password" id="pp${i}" value="${dec(d.pwd2)}" readonly>
+        <button class="btn gray" onclick="toggleShow('pp${i}')">Show</button>
+        <button class="btn" onclick="copy('${dec(d.pwd2)}')">Copy</button>
+        <br>` : ""}
+
+        ${d.pwd3 ? `
+        Txn:
+        <input type="password" id="tp${i}" value="${dec(d.pwd3)}" readonly>
+        <button class="btn gray" onclick="toggleShow('tp${i}')">Show</button>
+        <button class="btn" onclick="copy('${dec(d.pwd3)}')">Copy</button>
+        ` : ""}
+      </td>
+
       <td>
         <button class="btn green" onclick="editRow(${i})">✏ Edit</button>
         <button class="btn red" onclick="del(${i})">❌</button>
