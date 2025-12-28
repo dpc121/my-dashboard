@@ -5,7 +5,6 @@
 <title>Secure Website Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#020617">
 
@@ -26,9 +25,8 @@ body{
 }
 h2,h3{margin:10px 0}
 input,select,button{
-  width:100%;
-  padding:10px;
-  margin:6px 0;
+  padding:8px;
+  margin:4px;
   border-radius:6px;
   border:none;
 }
@@ -53,20 +51,16 @@ th,td{
   border:1px solid #334155;
   padding:8px;
   text-align:center;
+  vertical-align:top;
 }
 th{background:#020617}
-a{color:#38bdf8;text-decoration:none}
+.copy{cursor:pointer;color:#38bdf8}
 .small{font-size:12px;color:#94a3b8}
 .hide{display:none}
-.copy{cursor:pointer;color:#38bdf8}
-.action-btn{
-  padding:5px 8px;
-  margin:2px;
-  width:auto;
-}
+.btn-sm{padding:5px 8px;font-size:12px;margin:2px}
 .red{background:#dc2626}
-.green{background:#16a34a}
 .gray{background:#475569}
+.green{background:#16a34a}
 </style>
 </head>
 
@@ -81,6 +75,7 @@ a{color:#38bdf8;text-decoration:none}
   <label class="small">
     <input type="checkbox" id="rememberMe"> Remember Me (30 Days)
   </label>
+  <br>
   <button onclick="login()">Login / Register</button>
 </div>
 
@@ -91,7 +86,7 @@ a{color:#38bdf8;text-decoration:none}
   <div class="card">
     <h3>➕ New Website Add</h3>
     <input id="site" placeholder="Website Name">
-    <input id="url" placeholder="Website URL (https://...)">
+    <input id="url" placeholder="Website URL">
     <input id="uid" placeholder="User ID">
     <input id="pwd" placeholder="Password">
     <select id="cat">
@@ -100,6 +95,7 @@ a{color:#38bdf8;text-decoration:none}
       <option>Bank</option>
       <option>Other</option>
     </select>
+    <br>
     <button onclick="addSite()">Save</button>
   </div>
 
@@ -113,45 +109,40 @@ a{color:#38bdf8;text-decoration:none}
 </div>
 
 <script>
-/* ========== ENCRYPTION ========== */
+/* ===== Encryption ===== */
 function enc(t){return btoa(unescape(encodeURIComponent(t)))}
 function dec(t){return decodeURIComponent(escape(atob(t)))}
 
-/* ========== GLOBAL ========== */
 let currentUser=null;
 let sites=[];
 
-/* ========== AUTO LOGIN (30 DAYS) ========== */
+/* ===== Auto Login ===== */
 window.onload=function(){
   let u=localStorage.getItem("rememberUser");
   let t=localStorage.getItem("rememberTime");
   if(u && t){
-    let days=(Date.now()-t)/(1000*60*60*24);
-    if(days<=30){
+    let d=(Date.now()-t)/(1000*60*60*24);
+    if(d<=30){
       currentUser=u;
       sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
       loginBox.classList.add("hide");
       dash.classList.remove("hide");
       render();
-    }else{
-      localStorage.removeItem("rememberUser");
-      localStorage.removeItem("rememberTime");
     }
   }
 };
 
-/* ========== LOGIN ========== */
+/* ===== Login ===== */
 function login(){
-  let u=luser.value.trim();
-  let p=lpass.value.trim();
-  if(!u||!p){alert("Username & Password likhiye");return;}
+  let u=luser.value.trim(), p=lpass.value.trim();
+  if(!u||!p) return alert("Username & Password likhiye");
 
   let users=JSON.parse(localStorage.getItem("users")||"{}");
   if(!users[u]){
     users[u]=enc(p);
     localStorage.setItem("users",JSON.stringify(users));
   }
-  if(dec(users[u])!==p){alert("Wrong Password");return;}
+  if(dec(users[u])!==p) return alert("Wrong Password");
 
   currentUser=u;
   sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
@@ -166,7 +157,7 @@ function login(){
   render();
 }
 
-/* ========== LOGOUT ========== */
+/* ===== Logout ===== */
 function logout(){
   localStorage.removeItem("rememberUser");
   localStorage.removeItem("rememberTime");
@@ -175,7 +166,7 @@ function logout(){
   loginBox.classList.remove("hide");
 }
 
-/* ========== ADD ========== */
+/* ===== Add ===== */
 function addSite(){
   sites.push({
     site:site.value,
@@ -188,12 +179,11 @@ function addSite(){
   site.value=url.value=uid.value=pwd.value="";
 }
 
-/* ========== SAVE ========== */
 function save(){
   localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
 }
 
-/* ========== DELETE ========== */
+/* ===== Delete ===== */
 function del(i){
   if(confirm("Delete kare?")){
     sites.splice(i,1);
@@ -201,7 +191,7 @@ function del(i){
   }
 }
 
-/* ========== SEARCH ========== */
+/* ===== Search ===== */
 function search(v){
   v=v.toLowerCase();
   [...tbl.rows].forEach((r,i)=>{
@@ -210,37 +200,38 @@ function search(v){
   });
 }
 
-/* ========== COPY ========== */
+/* ===== Copy ===== */
 function autoCopy(t){
   navigator.clipboard.writeText(t);
   alert("Copied ✔");
 }
 
-/* ========== SHOW / HIDE PASSWORD ========== */
-function togglePwd(id){
-  let f=document.getElementById(id);
-  f.type = f.type==="password" ? "text" : "password";
+/* ===== Show / Hide ===== */
+function togglePwd(i){
+  let f=document.getElementById("pwd_"+i);
+  f.type = f.type==="password"?"text":"password";
 }
 
-/* ========== EDIT PASSWORD ========== */
+/* ===== Edit ===== */
 function editPwd(i){
-  let newPwd=prompt("New Password dijiye:");
-  if(!newPwd)return;
-  sites[i].pwd=enc(newPwd);
+  let n=prompt("New Password dijiye:");
+  if(!n) return;
+  sites[i].pwd=enc(n);
   save(); render();
 }
 
-/* ========== RENDER ========== */
+/* ===== Render ===== */
 function render(){
   tbl.innerHTML=`
   <tr>
     <th>Website</th>
     <th>Open</th>
-    <th>ID (Click)</th>
+    <th>ID</th>
     <th>Password</th>
     <th>Category</th>
     <th>Action</th>
   </tr>`;
+
   sites.forEach((d,i)=>{
     tbl.innerHTML+=`
     <tr>
@@ -248,19 +239,18 @@ function render(){
       <td><a href="${d.url}" target="_blank">Open</a></td>
       <td class="copy" onclick="autoCopy('${dec(d.uid)}')">${dec(d.uid)}</td>
       <td>
-        <input type="password" id="pwd${i}" value="${dec(d.pwd)}" readonly>
-        <br>
-        <button class="action-btn gray" onclick="togglePwd('pwd${i}')">Show</button>
-        <button class="action-btn green" onclick="editPwd(${i})">Edit</button>
-        <button class="action-btn" onclick="autoCopy('${dec(d.pwd)}')">Copy</button>
+        <input id="pwd_${i}" type="password" value="${dec(d.pwd)}" readonly><br>
+        <button class="btn-sm gray" onclick="togglePwd(${i})">Show</button>
+        <button class="btn-sm green" onclick="editPwd(${i})">Edit</button>
+        <button class="btn-sm" onclick="autoCopy('${dec(d.pwd)}')">Copy</button>
       </td>
       <td>${d.cat}</td>
-      <td><button class="action-btn red" onclick="del(${i})">❌</button></td>
+      <td><button class="btn-sm red" onclick="del(${i})">❌</button></td>
     </tr>`;
   });
 }
 
-/* ========== PWA ========== */
+/* ===== PWA ===== */
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("service-worker.js");
 }
