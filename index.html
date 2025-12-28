@@ -12,7 +12,10 @@
 body{margin:0;font-family:Arial;background:#0f172a;color:#e5e7eb}
 .container{max-width:1100px;margin:auto;padding:15px}
 .card{background:#020617;padding:15px;border-radius:10px;margin-bottom:15px}
-input,select,button{padding:8px;margin:4px;border-radius:6px;border:none}
+h2,h3{margin:6px 0}
+input,select,button{
+  padding:8px;margin:4px;border-radius:6px;border:none
+}
 input,select{background:#020617;color:#fff;border:1px solid #334155}
 button{background:#2563eb;color:#fff;font-weight:bold;cursor:pointer}
 table{width:100%;border-collapse:collapse;margin-top:10px}
@@ -40,14 +43,23 @@ th{background:#020617}
 <input type="checkbox" id="rememberMe"> Remember Me (30 Days)
 </label><br>
 <button onclick="login()">Login / Register</button>
+<button class="gray" onclick="showForgot()">Forgot Password</button>
+</div>
+
+<!-- FORGOT PASSWORD -->
+<div class="card hide" id="forgotBox">
+<h3>🔁 Reset Admin Password</h3>
+<input id="fpUser" placeholder="Username">
+<input id="fpNew" placeholder="New Password">
+<button onclick="resetPassword()">Reset</button>
+<button class="gray" onclick="backToLogin()">Cancel</button>
 </div>
 
 <!-- DASHBOARD -->
 <div class="card hide" id="dash">
-<h2>📌 Website Manager (GitHub Base)</h2>
+<h2 id="formTitle">📌 Add Website</h2>
 
 <div class="card">
-<h3 id="formTitle">➕ Add Website</h3>
 <input id="site" placeholder="Website Name">
 <input id="url" placeholder="Website URL">
 <input id="uid" placeholder="User ID">
@@ -59,7 +71,7 @@ th{background:#020617}
 <option>Other</option>
 </select>
 
-<div id="pwdBlock">
+<div>
 <input id="pwd1" placeholder="Login Password">
 <input id="pwd2" class="hide" placeholder="Profile Password">
 <input id="pwd3" class="hide" placeholder="Transaction Password">
@@ -88,161 +100,177 @@ let editIndex=null;
 
 /* ===== AUTO LOGIN ===== */
 window.onload=()=>{
-  let u=localStorage.getItem("rememberUser");
-  let t=localStorage.getItem("rememberTime");
-  if(u && t && (Date.now()-t)/(1000*60*60*24)<=30){
-    currentUser=u;
-    sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
-    loginBox.classList.add("hide");
-    dash.classList.remove("hide");
-    render();
-  }
+let u=localStorage.getItem("rememberUser");
+let t=localStorage.getItem("rememberTime");
+if(u&&t&&(Date.now()-t)/(1000*60*60*24)<=30){
+currentUser=u;
+sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
+loginBox.classList.add("hide");
+dash.classList.remove("hide");
+render();
+}
 };
 
 /* ===== LOGIN ===== */
 function login(){
-  let u=luser.value.trim(), p=lpass.value.trim();
-  if(!u||!p) return alert("Fill all");
-  let users=JSON.parse(localStorage.getItem("users")||"{}");
-  if(!users[u]) users[u]=enc(p);
-  if(dec(users[u])!==p) return alert("Wrong password");
-  currentUser=u;
-  localStorage.setItem("users",JSON.stringify(users));
-  sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
-  if(rememberMe.checked){
-    localStorage.setItem("rememberUser",u);
-    localStorage.setItem("rememberTime",Date.now());
-  }
-  loginBox.classList.add("hide");
-  dash.classList.remove("hide");
-  render();
+let u=luser.value.trim(),p=lpass.value.trim();
+if(!u||!p) return alert("Fill all");
+let users=JSON.parse(localStorage.getItem("users")||"{}");
+if(!users[u]) users[u]=enc(p);
+if(dec(users[u])!==p) return alert("Wrong password");
+currentUser=u;
+localStorage.setItem("users",JSON.stringify(users));
+sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
+if(rememberMe.checked){
+localStorage.setItem("rememberUser",u);
+localStorage.setItem("rememberTime",Date.now());
+}
+loginBox.classList.add("hide");
+dash.classList.remove("hide");
+render();
 }
 
 /* ===== LOGOUT ===== */
 function logout(){
-  localStorage.removeItem("rememberUser");
-  localStorage.removeItem("rememberTime");
-  location.reload();
+localStorage.removeItem("rememberUser");
+localStorage.removeItem("rememberTime");
+location.reload();
+}
+
+/* ===== FORGOT PASSWORD ===== */
+function showForgot(){
+loginBox.classList.add("hide");
+forgotBox.classList.remove("hide");
+}
+function backToLogin(){
+forgotBox.classList.add("hide");
+loginBox.classList.remove("hide");
+}
+function resetPassword(){
+let u=fpUser.value.trim(),p=fpNew.value.trim();
+if(!u||!p) return alert("Fill all");
+let users=JSON.parse(localStorage.getItem("users")||"{}");
+if(!users[u]) return alert("User not found");
+users[u]=enc(p);
+localStorage.setItem("users",JSON.stringify(users));
+alert("Password Reset Successful");
+backToLogin();
 }
 
 /* ===== CATEGORY ===== */
 function togglePwdFields(){
-  pwd2.classList.toggle("hide",!(cat.value==="Job"||cat.value==="Bank"));
-  pwd3.classList.toggle("hide",!(cat.value==="Job"||cat.value==="Bank"));
+pwd2.classList.toggle("hide",!(cat.value==="Job"||cat.value==="Bank"));
+pwd3.classList.toggle("hide",!(cat.value==="Job"||cat.value==="Bank"));
 }
 
 /* ===== SAVE / UPDATE ===== */
 function saveEntry(){
-  let data={
-    site:site.value,
-    url:url.value,
-    uid:enc(uid.value),
-    cat:cat.value,
-    pwd1:enc(pwd1.value),
-    pwd2:enc(pwd2.value||""),
-    pwd3:enc(pwd3.value||"")
-  };
-
-  if(editIndex!==null){
-    sites[editIndex]=data;   // ✅ UPDATE
-    editIndex=null;
-    formTitle.innerText="➕ Add Website";
-    cancelBtn.classList.add("hide");
-  }else{
-    sites.push(data);        // ➕ ADD
-  }
-
-  persist();
-  clearForm();
+let data={
+site:site.value,
+url:url.value,
+uid:enc(uid.value),
+cat:cat.value,
+pwd1:enc(pwd1.value),
+pwd2:enc(pwd2.value||""),
+pwd3:enc(pwd3.value||"")
+};
+if(editIndex!==null){
+sites[editIndex]=data;
+editIndex=null;
+formTitle.innerText="📌 Add Website";
+cancelBtn.classList.add("hide");
+}else{
+sites.push(data);
+}
+persist();
+clearForm();
 }
 
-/* ===== EDIT ROW (THIS WAS MISSING EFFECT) ===== */
+/* ===== EDIT ===== */
 function editRow(i){
-  let d=sites[i];
-  editIndex=i;
-  formTitle.innerText="✏ Edit Website";
-  site.value=d.site;
-  url.value=d.url;
-  uid.value=dec(d.uid);
-  cat.value=d.cat;
-  togglePwdFields();
-  pwd1.value=dec(d.pwd1);
-  pwd2.value=dec(d.pwd2||"");
-  pwd3.value=dec(d.pwd3||"");
-  cancelBtn.classList.remove("hide");
-  window.scrollTo({top:0,behavior:"smooth"});
+let d=sites[i];
+editIndex=i;
+formTitle.innerText="✏ Edit Website";
+site.value=d.site;
+url.value=d.url;
+uid.value=dec(d.uid);
+cat.value=d.cat;
+togglePwdFields();
+pwd1.value=dec(d.pwd1);
+pwd2.value=dec(d.pwd2||"");
+pwd3.value=dec(d.pwd3||"");
+cancelBtn.classList.remove("hide");
+window.scrollTo({top:0,behavior:"smooth"});
 }
 
-/* ===== CANCEL EDIT ===== */
+/* ===== CANCEL ===== */
 function cancelEdit(){
-  editIndex=null;
-  formTitle.innerText="➕ Add Website";
-  clearForm();
-  cancelBtn.classList.add("hide");
+editIndex=null;
+formTitle.innerText="📌 Add Website";
+clearForm();
+cancelBtn.classList.add("hide");
 }
 
 /* ===== CLEAR ===== */
 function clearForm(){
-  site.value=url.value=uid.value=pwd1.value=pwd2.value=pwd3.value="";
+site.value=url.value=uid.value=pwd1.value=pwd2.value=pwd3.value="";
 }
 
 /* ===== DELETE ===== */
 function del(i){
-  if(confirm("Delete?")){
-    sites.splice(i,1);
-    persist();
-  }
+if(confirm("Delete?")){
+sites.splice(i,1);
+persist();
+}
 }
 
 /* ===== SAVE STORAGE ===== */
 function persist(){
-  localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
-  render();
+localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
+render();
 }
 
 /* ===== SEARCH ===== */
 function search(v){
-  v=v.toLowerCase();
-  [...tbl.rows].forEach((r,i)=>{
-    if(i===0)return;
-    r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
-  });
+v=v.toLowerCase();
+[...tbl.rows].forEach((r,i)=>{
+if(i===0)return;
+r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
+});
 }
 
 /* ===== COPY ===== */
 const copy=t=>{navigator.clipboard.writeText(t);alert("Copied");};
 
-/* ===== RENDER (EDIT BUTTON CONFIRMED) ===== */
+/* ===== RENDER ===== */
 function render(){
-  tbl.innerHTML=`
-  <tr>
-    <th>Website</th>
-    <th>User ID</th>
-    <th>Passwords</th>
-    <th>Action</th>
-  </tr>`;
-  sites.forEach((d,i)=>{
-    tbl.innerHTML+=`
-    <tr>
-      <td>${d.site}</td>
-      <td class="copy" onclick="copy('${dec(d.uid)}')">${dec(d.uid)}</td>
-      <td>
-        Login <button class="btn" onclick="copy('${dec(d.pwd1)}')">Copy</button><br>
-        ${d.pwd2?`Profile <button class="btn" onclick="copy('${dec(d.pwd2)}')">Copy</button><br>`:""}
-        ${d.pwd3?`Txn <button class="btn" onclick="copy('${dec(d.pwd3)}')">Copy</button>`:""}
-      </td>
-      <td>
-        <button class="btn green" onclick="editRow(${i})">✏ Edit</button>
-        <button class="btn red" onclick="del(${i})">❌</button>
-      </td>
-    </tr>`;
-  });
+tbl.innerHTML=`
+<tr>
+<th>Website</th><th>User ID</th><th>Passwords</th><th>Action</th>
+</tr>`;
+sites.forEach((d,i)=>{
+tbl.innerHTML+=`
+<tr>
+<td>${d.site}</td>
+<td class="copy" onclick="copy('${dec(d.uid)}')">${dec(d.uid)}</td>
+<td>
+Login <button class="btn" onclick="copy('${dec(d.pwd1)}')">Copy</button><br>
+${d.pwd2?`Profile <button class="btn" onclick="copy('${dec(d.pwd2)}')">Copy</button><br>`:""}
+${d.pwd3?`Txn <button class="btn" onclick="copy('${dec(d.pwd3)}')">Copy</button>`:""}
+</td>
+<td>
+<button class="btn green" onclick="editRow(${i})">✏ Edit</button>
+<button class="btn red" onclick="del(${i})">❌</button>
+</td>
+</tr>`;
+});
 }
 
 /* ===== PWA ===== */
 if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("service-worker.js");
+navigator.serviceWorker.register("service-worker.js");
 }
 </script>
+
 </body>
 </html>
