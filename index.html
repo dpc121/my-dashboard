@@ -9,18 +9,14 @@
 <meta name="theme-color" content="#020617">
 
 <style>
-body{
-  margin:0;font-family:Arial;background:#0f172a;color:#e5e7eb
-}
+body{margin:0;font-family:Arial;background:#0f172a;color:#e5e7eb}
 .container{max-width:1100px;margin:auto;padding:15px}
 .card{background:#020617;padding:15px;border-radius:10px;margin-bottom:15px}
-input,select,button{
-  padding:8px;margin:4px;border-radius:6px;border:none
-}
+input,select,button{padding:8px;margin:4px;border-radius:6px;border:none}
 input,select{background:#020617;color:#fff;border:1px solid #334155}
 button{background:#2563eb;color:#fff;font-weight:bold;cursor:pointer}
 table{width:100%;border-collapse:collapse}
-th,td{border:1px solid #334155;padding:6px;text-align:center}
+th,td{border:1px solid #334155;padding:6px;text-align:center;vertical-align:top}
 th{background:#020617}
 .hide{display:none}
 .btn{padding:5px 8px;font-size:12px}
@@ -40,30 +36,22 @@ th{background:#020617}
 <h2>🔐 Admin Login</h2>
 <input id="luser" placeholder="Username">
 <input id="lpass" type="password" placeholder="Password">
-<label class="small"><input type="checkbox" id="rememberMe"> Remember Me (30 Days)</label><br>
+<label class="small">
+<input type="checkbox" id="rememberMe"> Remember Me (30 Days)
+</label><br>
 <button onclick="login()">Login / Register</button>
-<button class="gray" onclick="showReset()">Forgot Password</button>
-</div>
-
-<!-- RESET -->
-<div class="card hide" id="resetBox">
-<h3>🔁 Password Reset (WhatsApp OTP)</h3>
-<p class="small">OTP WhatsApp पर भेजें: <b id="wa"></b></p>
-<input id="otpInput" placeholder="Enter OTP">
-<input id="newPass" placeholder="New Password">
-<button onclick="verifyOTP()">Verify & Reset</button>
-<button class="gray" onclick="hideReset()">Cancel</button>
 </div>
 
 <!-- DASHBOARD -->
 <div class="card hide" id="dash">
-<h2>📌 Website Manager</h2>
+<h2>📌 Website Manager (GitHub Base)</h2>
 
 <div class="card">
-<h3>➕ Add Website</h3>
+<h3>➕ Add / Edit Website</h3>
 <input id="site" placeholder="Website Name">
-<input id="url" placeholder="URL">
+<input id="url" placeholder="Website URL">
 <input id="uid" placeholder="User ID">
+
 <select id="cat" onchange="togglePwdFields()">
 <option>Govt</option>
 <option>Job</option>
@@ -73,11 +61,12 @@ th{background:#020617}
 
 <div id="pwdBlock">
 <input id="pwd1" placeholder="Login Password">
-<input id="pwd2" placeholder="Profile Password" class="hide">
-<input id="pwd3" placeholder="Transaction Password" class="hide">
+<input id="pwd2" class="hide" placeholder="Profile Password">
+<input id="pwd3" class="hide" placeholder="Transaction Password">
 </div>
 
-<button onclick="addSite()">Save</button>
+<button onclick="saveEntry()">Save</button>
+<button class="gray hide" id="cancelBtn" onclick="cancelEdit()">Cancel</button>
 </div>
 
 <input placeholder="🔍 Search" onkeyup="search(this.value)">
@@ -89,16 +78,15 @@ th{background:#020617}
 </div>
 
 <script>
-/* ================= CONFIG ================= */
-const ADMIN_WHATSAPP = "+91XXXXXXXXXX";
-
-/* ================= ENCRYPT ================= */
+/* ===== ENCRYPT ===== */
 const enc=t=>btoa(unescape(encodeURIComponent(t)));
 const dec=t=>decodeURIComponent(escape(atob(t)));
 
-let currentUser=null, sites=[], otp=null, otpTime=0;
+let currentUser=null;
+let sites=[];
+let editIndex=null;
 
-/* ================= AUTO LOGIN ================= */
+/* ===== AUTO LOGIN ===== */
 window.onload=()=>{
 let u=localStorage.getItem("rememberUser");
 let t=localStorage.getItem("rememberTime");
@@ -111,13 +99,13 @@ render();
 }
 };
 
-/* ================= LOGIN ================= */
+/* ===== LOGIN ===== */
 function login(){
-let u=luser.value.trim(), p=lpass.value.trim();
+let u=luser.value.trim(),p=lpass.value.trim();
 if(!u||!p)return alert("Fill all");
 let users=JSON.parse(localStorage.getItem("users")||"{}");
 if(!users[u]) users[u]=enc(p);
-if(dec(users[u])!==p)return alert("Wrong password");
+if(dec(users[u])!==p) return alert("Wrong password");
 currentUser=u;
 localStorage.setItem("users",JSON.stringify(users));
 sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
@@ -125,64 +113,88 @@ if(rememberMe.checked){
 localStorage.setItem("rememberUser",u);
 localStorage.setItem("rememberTime",Date.now());
 }
-loginBox.classList.add("hide");dash.classList.remove("hide");
+loginBox.classList.add("hide");
+dash.classList.remove("hide");
 render();
 }
 
-/* ================= LOGOUT ================= */
+/* ===== LOGOUT ===== */
 function logout(){
 localStorage.removeItem("rememberUser");
 localStorage.removeItem("rememberTime");
-currentUser=null;
-dash.classList.add("hide");loginBox.classList.remove("hide");
+location.reload();
 }
 
-/* ================= RESET ================= */
-function showReset(){
-otp=Math.floor(100000+Math.random()*900000);
-otpTime=Date.now();
-wa.innerText=ADMIN_WHATSAPP+" | OTP: "+otp;
-loginBox.classList.add("hide");resetBox.classList.remove("hide");
-}
-function hideReset(){
-resetBox.classList.add("hide");loginBox.classList.remove("hide");
-}
-function verifyOTP(){
-if(Date.now()-otpTime>120000)return alert("OTP expired");
-if(otpInput.value!=otp)return alert("Wrong OTP");
-let users=JSON.parse(localStorage.getItem("users")||"{}");
-users[luser.value]=enc(newPass.value);
-localStorage.setItem("users",JSON.stringify(users));
-alert("Password Reset Success");
-hideReset();
-}
-
-/* ================= CATEGORY ================= */
+/* ===== CATEGORY ===== */
 function togglePwdFields(){
-let c=cat.value;
-pwd2.classList.toggle("hide",!(c=="Job"||c=="Bank"));
-pwd3.classList.toggle("hide",!(c=="Job"||c=="Bank"));
+pwd2.classList.toggle("hide",!(cat.value=="Job"||cat.value=="Bank"));
+pwd3.classList.toggle("hide",!(cat.value=="Job"||cat.value=="Bank"));
 }
 
-/* ================= ADD ================= */
-function addSite(){
-sites.push({
-site:site.value,url:url.value,uid:enc(uid.value),
+/* ===== SAVE / UPDATE ===== */
+function saveEntry(){
+let data={
+site:site.value,
+url:url.value,
+uid:enc(uid.value),
 cat:cat.value,
 pwd1:enc(pwd1.value),
 pwd2:enc(pwd2.value||""),
 pwd3:enc(pwd3.value||"")
-});
-save();render();
+};
+if(editIndex!==null){
+sites[editIndex]=data;
+editIndex=null;
+cancelBtn.classList.add("hide");
+}else{
+sites.push(data);
+}
+persist();
+clearForm();
+}
+
+/* ===== EDIT ===== */
+function editRow(i){
+let d=sites[i];
+editIndex=i;
+site.value=d.site;
+url.value=d.url;
+uid.value=dec(d.uid);
+cat.value=d.cat;
+togglePwdFields();
+pwd1.value=dec(d.pwd1);
+pwd2.value=dec(d.pwd2||"");
+pwd3.value=dec(d.pwd3||"");
+cancelBtn.classList.remove("hide");
+}
+
+/* ===== CANCEL EDIT ===== */
+function cancelEdit(){
+editIndex=null;
+clearForm();
+cancelBtn.classList.add("hide");
+}
+
+/* ===== CLEAR FORM ===== */
+function clearForm(){
 site.value=url.value=uid.value=pwd1.value=pwd2.value=pwd3.value="";
 }
 
-/* ================= SAVE ================= */
-function save(){
-localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
+/* ===== DELETE ===== */
+function del(i){
+if(confirm("Delete?")){
+sites.splice(i,1);
+persist();
+}
 }
 
-/* ================= SEARCH ================= */
+/* ===== SAVE STORAGE ===== */
+function persist(){
+localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
+render();
+}
+
+/* ===== SEARCH ===== */
 function search(v){
 v=v.toLowerCase();
 [...tbl.rows].forEach((r,i)=>{
@@ -191,14 +203,14 @@ r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
 });
 }
 
-/* ================= COPY ================= */
+/* ===== COPY ===== */
 const copy=t=>{navigator.clipboard.writeText(t);alert("Copied");};
 
-/* ================= RENDER ================= */
+/* ===== RENDER ===== */
 function render(){
 tbl.innerHTML=`
 <tr>
-<th>Website</th><th>ID</th><th>Passwords</th><th>Action</th>
+<th>Website</th><th>User ID</th><th>Passwords</th><th>Action</th>
 </tr>`;
 sites.forEach((d,i)=>{
 tbl.innerHTML+=`
@@ -206,16 +218,19 @@ tbl.innerHTML+=`
 <td>${d.site}</td>
 <td class="copy" onclick="copy('${dec(d.uid)}')">${dec(d.uid)}</td>
 <td>
-Login: <span class="copy" onclick="copy('${dec(d.pwd1)}')">Copy</span><br>
-${d.pwd2?`Profile: <span class="copy" onclick="copy('${dec(d.pwd2)}')">Copy</span><br>`:""}
-${d.pwd3?`Txn: <span class="copy" onclick="copy('${dec(d.pwd3)}')">Copy</span>`:""}
+Login <button class="btn" onclick="copy('${dec(d.pwd1)}')">Copy</button><br>
+${d.pwd2?`Profile <button class="btn" onclick="copy('${dec(d.pwd2)}')">Copy</button><br>`:""}
+${d.pwd3?`Txn <button class="btn" onclick="copy('${dec(d.pwd3)}')">Copy</button>`:""}
 </td>
-<td><button class="btn red" onclick="sites.splice(${i},1);save();render()">❌</button></td>
+<td>
+<button class="btn green" onclick="editRow(${i})">✏ Edit</button>
+<button class="btn red" onclick="del(${i})">❌</button>
+</td>
 </tr>`;
 });
 }
 
-/* ================= PWA ================= */
+/* ===== PWA ===== */
 if("serviceWorker" in navigator){
 navigator.serviceWorker.register("service-worker.js");
 }
