@@ -2,7 +2,7 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8">
-<title>Secure Website Dashboard</title>
+<title>Secure Dashboard (Realtime Sync)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -33,9 +33,9 @@ th{background:#020617}
 .green{background:#16a34a}
 .gray{background:#475569}
 .copy{cursor:pointer;color:#38bdf8}
-.small{font-size:12px;color:#94a3b8}
 .pass-row{text-align:left}
 .pass-row input{width:120px}
+.small{font-size:12px;color:#94a3b8}
 </style>
 </head>
 
@@ -48,13 +48,13 @@ th{background:#020617}
 <input id="luser" placeholder="Username">
 <input id="lpass" type="password" placeholder="Password">
 <label class="small">
-<input type="checkbox" id="rememberMe"> Remember Me (30 Days)
+<input type="checkbox" id="rememberMe"> Remember Me (30 days)
 </label><br>
 <button onclick="login()">Login / Register</button>
 <button class="gray" onclick="openForgot()">Forgot Password</button>
 </div>
 
-<!-- FORGOT PASSWORD -->
+<!-- FORGOT -->
 <div class="card hide" id="forgotBox">
 <h3>🔁 Reset Password</h3>
 <input id="fpUser" placeholder="Username">
@@ -88,6 +88,12 @@ th{background:#020617}
 <button class="gray hide" id="cancelBtn" onclick="cancelEdit()">Cancel</button>
 </div>
 
+<!-- BACKUP -->
+<div class="card">
+<button onclick="exportBackup()">📦 Export Backup</button>
+<input type="file" onchange="importBackup(this.files[0])">
+</div>
+
 <input placeholder="🔍 Search" onkeyup="search(this.value)">
 <table id="tbl"></table>
 
@@ -96,10 +102,21 @@ th{background:#020617}
 
 </div>
 
+<!-- 🔥 FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <script>
-/* ================= DATA SAFETY ================= */
-// ❗ NEVER change this key
-const STORAGE_KEY = "SECURE_DASHBOARD_DATA_V1";
+/* ================= FIREBASE CONFIG ================= */
+firebase.initializeApp({
+  apiKey: "AIzaSyCxFQkurXcZE4qImf-49mwBPG6PSyVx4",
+  authDomain: "dp-communication.firebaseapp.com",
+  projectId: "dp-communication"
+});
+const db = firebase.firestore();
+
+/* ================= CONSTANT ================= */
+const STORAGE_KEY="SECURE_DASHBOARD_DATA_V1";
 
 /* ================= ENCRYPT ================= */
 const enc=t=>btoa(unescape(encodeURIComponent(t)));
@@ -108,23 +125,49 @@ const dec=t=>decodeURIComponent(escape(atob(t)));
 let currentUser=null;
 let sites=[];
 let editIndex=null;
+let unsubscribe=null;
 
-/* ================= LOAD DATA ================= */
-function loadData(){
-  const raw = localStorage.getItem(STORAGE_KEY+"_"+currentUser);
+/* ================= LOCAL LOAD ================= */
+function loadLocal(){
+  const raw=localStorage.getItem(STORAGE_KEY+"_"+currentUser);
   if(raw){
-    const parsed = JSON.parse(raw);
-    sites = parsed.data || [];
-  }else{
-    sites = [];
-  }
+    const p=JSON.parse(raw);
+    sites=p.data||[];
+  }else sites=[];
 }
 
-/* ================= SAVE DATA ================= */
+/* ================= LOCAL SAVE ================= */
+function saveLocal(){
+  localStorage.setItem(
+    STORAGE_KEY+"_"+currentUser,
+    JSON.stringify({version:1,data:sites})
+  );
+}
+
+/* ================= REALTIME SYNC ================= */
+function startRealtime(){
+  if(unsubscribe) unsubscribe();
+  unsubscribe=db.collection("dashboards")
+    .doc(currentUser)
+    .onSnapshot(doc=>{
+      if(doc.exists){
+        sites=doc.data().data||[];
+        saveLocal();
+        render();
+      }
+    });
+}
+
+/* ================= PERSIST ================= */
 function persist(){
-  const payload = {version:1, data:sites};
-  localStorage.setItem(STORAGE_KEY+"_"+currentUser, JSON.stringify(payload));
-  render();
+  saveLocal();
+  db.collection("dashboards")
+    .doc(currentUser)
+    .set({
+      version:1,
+      data:sites,
+      updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
 }
 
 /* ================= AUTO LOGIN ================= */
@@ -133,17 +176,18 @@ window.onload=()=>{
   let t=localStorage.getItem("rememberTime");
   if(u && t && (Date.now()-t)/(1000*60*60*24)<=30){
     currentUser=u;
-    loadData();
+    loadLocal();
     loginBox.classList.add("hide");
     dash.classList.remove("hide");
     render();
+    startRealtime();
   }
 };
 
 /* ================= LOGIN ================= */
 function login(){
-  let u=luser.value.trim(), p=lpass.value.trim();
-  if(!u||!p) return alert("Fill all");
+  let u=luser.value.trim(),p=lpass.value.trim();
+  if(!u||!p)return alert("Fill all");
 
   let users=JSON.parse(localStorage.getItem("users")||"{}");
   if(!users[u]) users[u]=enc(p);
@@ -151,7 +195,7 @@ function login(){
 
   currentUser=u;
   localStorage.setItem("users",JSON.stringify(users));
-  loadData();
+  loadLocal();
 
   if(rememberMe.checked){
     localStorage.setItem("rememberUser",u);
@@ -162,6 +206,7 @@ function login(){
   forgotBox.classList.add("hide");
   dash.classList.remove("hide");
   render();
+  startRealtime();
 }
 
 /* ================= LOGOUT ================= */
@@ -181,13 +226,12 @@ function closeForgot(){
   loginBox.classList.remove("hide");
 }
 function resetPassword(){
-  let u=fpUser.value.trim(), p=fpPass.value.trim();
-  if(!u||!p) return alert("Fill all");
+  let u=fpUser.value.trim(),p=fpPass.value.trim();
   let users=JSON.parse(localStorage.getItem("users")||"{}");
-  if(!users[u]) return alert("User not found");
+  if(!users[u])return alert("User not found");
   users[u]=enc(p);
   localStorage.setItem("users",JSON.stringify(users));
-  alert("Password Reset Successful");
+  alert("Password reset successful");
   closeForgot();
 }
 
@@ -199,7 +243,7 @@ function togglePwdFields(){
 
 /* ================= SAVE / UPDATE ================= */
 function saveEntry(){
-  let data={
+  let d={
     site:site.value,
     uid:enc(uid.value),
     cat:cat.value,
@@ -209,13 +253,11 @@ function saveEntry(){
   };
 
   if(editIndex!==null){
-    sites[editIndex]=data;
+    sites[editIndex]=d;
     editIndex=null;
-    formTitle.innerText="➕ Add Website";
     cancelBtn.classList.add("hide");
-  }else{
-    sites.push(data);
-  }
+    formTitle.innerText="➕ Add Website";
+  }else sites.push(d);
 
   persist();
   clearForm();
@@ -273,47 +315,63 @@ const copy=t=>{navigator.clipboard.writeText(t);alert("Copied");};
 /* ================= SHOW / HIDE ================= */
 function toggleShow(id){
   let el=document.getElementById(id);
-  el.type = el.type==="password" ? "text" : "password";
+  el.type=el.type==="password"?"text":"password";
+}
+
+/* ================= EXPORT / IMPORT ================= */
+function exportBackup(){
+  const payload={
+    version:1,
+    created:new Date().toISOString(),
+    data:enc(JSON.stringify(sites))
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="dashboard-backup.json";
+  a.click();
+}
+
+function importBackup(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const o=JSON.parse(r.result);
+      sites=JSON.parse(dec(o.data));
+      persist();
+      alert("Backup restored");
+    }catch(e){
+      alert("Invalid backup");
+    }
+  };
+  r.readAsText(file);
 }
 
 /* ================= RENDER ================= */
 function render(){
   tbl.innerHTML=`
-  <tr>
-    <th>Website</th>
-    <th>User ID</th>
-    <th>Passwords</th>
-    <th>Action</th>
-  </tr>`;
-
+  <tr><th>Website</th><th>User ID</th><th>Passwords</th><th>Action</th></tr>`;
   sites.forEach((d,i)=>{
     tbl.innerHTML+=`
     <tr>
       <td>${d.site}</td>
       <td class="copy" onclick="copy('${dec(d.uid)}')">${dec(d.uid)}</td>
-
       <td class="pass-row">
         Login:
         <input type="password" id="lp${i}" value="${dec(d.pwd1)}" readonly>
         <button class="btn gray" onclick="toggleShow('lp${i}')">Show</button>
-        <button class="btn" onclick="copy('${dec(d.pwd1)}')">Copy</button>
-        <br>
-
+        <button class="btn" onclick="copy('${dec(d.pwd1)}')">Copy</button><br>
         ${d.pwd2?`
         Profile:
         <input type="password" id="pp${i}" value="${dec(d.pwd2)}" readonly>
         <button class="btn gray" onclick="toggleShow('pp${i}')">Show</button>
-        <button class="btn" onclick="copy('${dec(d.pwd2)}')">Copy</button>
-        <br>`:""}
-
+        <button class="btn" onclick="copy('${dec(d.pwd2)}')">Copy</button><br>`:""}
         ${d.pwd3?`
         Txn:
         <input type="password" id="tp${i}" value="${dec(d.pwd3)}" readonly>
         <button class="btn gray" onclick="toggleShow('tp${i}')">Show</button>
-        <button class="btn" onclick="copy('${dec(d.pwd3)}')">Copy</button>
-        `:""}
+        <button class="btn" onclick="copy('${dec(d.pwd3)}')">Copy</button>`:""}
       </td>
-
       <td>
         <button class="btn green" onclick="editRow(${i})">✏ Edit</button>
         <button class="btn red" onclick="del(${i})">❌</button>
