@@ -5,6 +5,10 @@
 <title>Secure Website Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#020617">
+
 <style>
 body{
     margin:0;
@@ -55,6 +59,7 @@ th{background:#020617}
 a{color:#38bdf8;text-decoration:none}
 .small{font-size:12px;color:#94a3b8}
 .hide{display:none}
+.copy{cursor:pointer;color:#38bdf8}
 </style>
 </head>
 
@@ -66,8 +71,11 @@ a{color:#38bdf8;text-decoration:none}
 <h2>🔐 Secure Login</h2>
 <input id="luser" placeholder="Username">
 <input id="lpass" type="password" placeholder="Password">
+<label class="small">
+<input type="checkbox" id="rememberMe"> Remember Me (30 days)
+</label>
 <button onclick="login()">Login / Register</button>
-<p class="small">First time → auto register hoga</p>
+<p class="small">First time → auto register</p>
 </div>
 
 <!-- DASHBOARD -->
@@ -91,29 +99,45 @@ a{color:#38bdf8;text-decoration:none}
 
 <input placeholder="🔍 Search Website" onkeyup="search(this.value)">
 
-<table id="tbl">
-<tr>
-<th>Website</th>
-<th>Open</th>
-<th>ID</th>
-<th>Password</th>
-<th>Category</th>
-<th>Action</th>
-</tr>
-</table>
+<table id="tbl"></table>
+
+<button onclick="exportData()">⬆ Export Backup</button>
+<input type="file" onchange="importData(this)">
 
 <button style="background:#dc2626" onclick="logout()">Logout</button>
 </div>
 
 </div>
 
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <script>
-/* SIMPLE ENCRYPTION */
+/* 🔥 FIREBASE CONFIG (APNA CONFIG PASTE KARO) */
+firebase.initializeApp({
+  apiKey: "PASTE",
+  authDomain: "PASTE",
+  projectId: "PASTE"
+});
+const db = firebase.firestore();
+
+/* ENCRYPTION */
 function enc(t){return btoa(unescape(encodeURIComponent(t)))}
 function dec(t){return decodeURIComponent(escape(atob(t)))}
 
 let currentUser=null;
 let sites=[];
+
+/* AUTO LOGIN (30 DAYS) */
+window.onload=function(){
+let u=localStorage.getItem("rememberUser");
+let t=localStorage.getItem("loginTime");
+if(u && t && (Date.now()-t)/(1000*60*60*24)<=30){
+currentUser=u;
+syncLoad();
+}
+}
 
 /* LOGIN */
 function login(){
@@ -125,21 +149,41 @@ let users=JSON.parse(localStorage.getItem("users")||"{}");
 if(!users[u]){
 users[u]=enc(p);
 localStorage.setItem("users",JSON.stringify(users));
-alert("Registration successful");
 }
 
 if(dec(users[u])!==p) return alert("Wrong Password");
 
 currentUser=u;
-sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
 
+if(rememberMe.checked){
+localStorage.setItem("rememberUser",u);
+localStorage.setItem("loginTime",Date.now());
+}
+
+syncLoad();
+}
+
+/* CLOUD LOAD */
+function syncLoad(){
+db.collection("dashboards").doc(currentUser).get().then(d=>{
+sites=d.exists?d.data().data:[];
+localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
 loginBox.classList.add("hide");
 dash.classList.remove("hide");
 render();
+});
+}
+
+/* SAVE (LOCAL + CLOUD) */
+function save(){
+localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
+db.collection("dashboards").doc(currentUser).set({data:sites});
 }
 
 /* LOGOUT */
 function logout(){
+localStorage.removeItem("rememberUser");
+localStorage.removeItem("loginTime");
 currentUser=null;
 dash.classList.add("hide");
 loginBox.classList.remove("hide");
@@ -156,11 +200,6 @@ cat:cat.value
 });
 save(); render();
 site.value=url.value=uid.value=pwd.value="";
-}
-
-/* SAVE */
-function save(){
-localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
 }
 
 /* DELETE */
@@ -180,22 +219,57 @@ r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
 });
 }
 
+/* AUTO COPY */
+function autoCopy(t){
+navigator.clipboard.writeText(t);
+alert("Copied ✔");
+}
+
+/* EXPORT */
+function exportData(){
+let data=enc(JSON.stringify(sites));
+let blob=new Blob([data]);
+let a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="dashboard-backup.enc";
+a.click();
+}
+
+/* IMPORT */
+function importData(inp){
+let f=inp.files[0]; if(!f)return;
+let r=new FileReader();
+r.onload=()=>{
+sites=JSON.parse(dec(r.result));
+save(); render();
+alert("Backup Restored ✔");
+};
+r.readAsText(f);
+}
+
 /* RENDER */
 function render(){
 tbl.innerHTML=`<tr>
-<th>Website</th><th>Open</th><th>ID</th><th>Password</th><th>Category</th><th>Action</th>
+<th>Website</th><th>Open</th><th>ID (Click)</th><th>Password (Click)</th><th>Category</th><th>Action</th>
 </tr>`;
 sites.forEach((d,i)=>{
 tbl.innerHTML+=`
 <tr>
 <td>${d.site}</td>
 <td><a href="${d.url}" target="_blank">Open</a></td>
-<td>${dec(d.uid)}</td>
-<td><input type="password" value="${dec(d.pwd)}" readonly></td>
+<td class="copy" onclick="autoCopy('${dec(d.uid)}')">${dec(d.uid)}</td>
+<td onclick="autoCopy('${dec(d.pwd)}')">
+<input type="password" value="${dec(d.pwd)}" readonly>
+</td>
 <td>${d.cat}</td>
 <td><button onclick="del(${i})">❌</button></td>
 </tr>`;
 });
+}
+
+/* PWA */
+if("serviceWorker" in navigator){
+navigator.serviceWorker.register("service-worker.js");
 }
 </script>
 
