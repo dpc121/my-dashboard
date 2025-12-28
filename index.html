@@ -7,7 +7,7 @@
 
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:#e5e7eb}
-.container{max-width:1100px;margin:auto;padding:15px}
+.container{max-width:1200px;margin:auto;padding:15px}
 .card{background:#020617;padding:15px;border-radius:10px;margin-bottom:15px}
 h2,h3{margin:6px 0}
 input,select,button{
@@ -16,17 +16,16 @@ input,select,button{
 input,select{
   background:#020617;color:#fff;border:1px solid #334155
 }
-button{
-  background:#2563eb;color:#fff;font-weight:bold;cursor:pointer
-}
+button{background:#2563eb;color:#fff;font-weight:bold;cursor:pointer}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th,td{
   border:1px solid #334155;
-  padding:6px;
+  padding:8px;
   text-align:center;
-  vertical-align:top
+  vertical-align:middle
 }
 th{background:#020617}
+tr:hover{background:#020617}
 .hide{display:none}
 .btn{padding:5px 8px;font-size:12px;margin:2px}
 .red{background:#dc2626}
@@ -69,8 +68,8 @@ a{color:#38bdf8;text-decoration:none}
 <h2 id="formTitle">➕ Add Website</h2>
 
 <div class="card">
-<input id="site" placeholder="Website Name">
-<input id="url" placeholder="Website URL (https://...)">
+<input id="site" placeholder="Website Name (e.g. Google)">
+<input id="url" placeholder="Website URL (google.com or https://...)">
 <input id="uid" placeholder="User ID">
 
 <select id="cat" onchange="togglePwdFields()">
@@ -104,41 +103,40 @@ a{color:#38bdf8;text-decoration:none}
 
 </div>
 
-<!-- 🔥 FIREBASE -->
+<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* ================= FIREBASE CONFIG ================= */
+/* ========== FIREBASE CONFIG ========== */
 firebase.initializeApp({
   apiKey: "AIzaSyCxFQkurXcZE4qImf-49mwBPG6PSyVx4",
   authDomain: "dp-communication.firebaseapp.com",
   projectId: "dp-communication"
 });
-const db = firebase.firestore();
+const db=firebase.firestore();
 
-/* ================= CONSTANT ================= */
+/* ========== CONSTANTS ========== */
 const STORAGE_KEY="SECURE_DASHBOARD_DATA_V1";
 
-/* ================= ENCRYPT ================= */
+/* ========== UTILS ========== */
 const enc=t=>btoa(unescape(encodeURIComponent(t)));
 const dec=t=>decodeURIComponent(escape(atob(t)));
-
-let currentUser=null;
-let sites=[];
-let editIndex=null;
-let unsubscribe=null;
-
-/* ================= LOCAL LOAD ================= */
-function loadLocal(){
-  const raw=localStorage.getItem(STORAGE_KEY+"_"+currentUser);
-  if(raw){
-    const p=JSON.parse(raw);
-    sites=p.data||[];
-  }else sites=[];
+function normalizeUrl(u){
+  if(!u) return "";
+  u=u.trim();
+  if(u.startsWith("http://")||u.startsWith("https://")) return u;
+  return "https://"+u;
 }
 
-/* ================= LOCAL SAVE ================= */
+/* ========== STATE ========== */
+let currentUser=null,sites=[],editIndex=null,unsubscribe=null;
+
+/* ========== LOCAL LOAD/SAVE ========== */
+function loadLocal(){
+  let r=localStorage.getItem(STORAGE_KEY+"_"+currentUser);
+  sites=r?JSON.parse(r).data:[];
+}
 function saveLocal(){
   localStorage.setItem(
     STORAGE_KEY+"_"+currentUser,
@@ -146,33 +144,23 @@ function saveLocal(){
   );
 }
 
-/* ================= REALTIME SYNC ================= */
+/* ========== REALTIME SYNC ========== */
 function startRealtime(){
   if(unsubscribe) unsubscribe();
-  unsubscribe=db.collection("dashboards")
-    .doc(currentUser)
+  unsubscribe=db.collection("dashboards").doc(currentUser)
     .onSnapshot(doc=>{
       if(doc.exists){
         sites=doc.data().data||[];
-        saveLocal();
-        render();
+        saveLocal(); render();
       }
     });
 }
-
-/* ================= PERSIST ================= */
 function persist(){
   saveLocal();
-  db.collection("dashboards")
-    .doc(currentUser)
-    .set({
-      version:1,
-      data:sites,
-      updatedAt:firebase.firestore.FieldValue.serverTimestamp()
-    });
+  db.collection("dashboards").doc(currentUser).set({data:sites});
 }
 
-/* ================= AUTO LOGIN ================= */
+/* ========== AUTO LOGIN ========== */
 window.onload=()=>{
   let u=localStorage.getItem("rememberUser");
   let t=localStorage.getItem("rememberTime");
@@ -181,69 +169,54 @@ window.onload=()=>{
     loadLocal();
     loginBox.classList.add("hide");
     dash.classList.remove("hide");
-    render();
-    startRealtime();
+    render(); startRealtime();
   }
 };
 
-/* ================= LOGIN ================= */
+/* ========== LOGIN / LOGOUT ========== */
 function login(){
   let u=luser.value.trim(),p=lpass.value.trim();
   if(!u||!p)return alert("Fill all");
-
   let users=JSON.parse(localStorage.getItem("users")||"{}");
   if(!users[u]) users[u]=enc(p);
   if(dec(users[u])!==p) return alert("Wrong password");
-
   currentUser=u;
   localStorage.setItem("users",JSON.stringify(users));
-  loadLocal();
-
   if(rememberMe.checked){
     localStorage.setItem("rememberUser",u);
     localStorage.setItem("rememberTime",Date.now());
   }
-
+  loadLocal();
   loginBox.classList.add("hide");
   forgotBox.classList.add("hide");
   dash.classList.remove("hide");
-  render();
-  startRealtime();
+  render(); startRealtime();
 }
-
-/* ================= LOGOUT ================= */
 function logout(){
   localStorage.removeItem("rememberUser");
   localStorage.removeItem("rememberTime");
   location.reload();
 }
 
-/* ================= FORGOT ================= */
-function openForgot(){
-  loginBox.classList.add("hide");
-  forgotBox.classList.remove("hide");
-}
-function closeForgot(){
-  forgotBox.classList.add("hide");
-  loginBox.classList.remove("hide");
-}
+/* ========== FORGOT ========== */
+function openForgot(){loginBox.classList.add("hide");forgotBox.classList.remove("hide")}
+function closeForgot(){forgotBox.classList.add("hide");loginBox.classList.remove("hide")}
 function resetPassword(){
-  let u=fpUser.value.trim(),p=fpPass.value.trim();
+  let u=fpUser.value,p=fpPass.value;
   let users=JSON.parse(localStorage.getItem("users")||"{}");
-  if(!users[u])return alert("User not found");
+  if(!users[u]) return alert("User not found");
   users[u]=enc(p);
   localStorage.setItem("users",JSON.stringify(users));
-  alert("Password reset successful");
-  closeForgot();
+  alert("Password reset"); closeForgot();
 }
 
-/* ================= CATEGORY ================= */
+/* ========== CATEGORY ========== */
 function togglePwdFields(){
   pwd2.classList.toggle("hide",!(cat.value==="Job"||cat.value==="Bank"));
   pwd3.classList.toggle("hide",!(cat.value==="Job"||cat.value==="Bank"));
 }
 
-/* ================= SAVE / UPDATE ================= */
+/* ========== CRUD ========== */
 function saveEntry(){
   let d={
     site:site.value,
@@ -254,132 +227,80 @@ function saveEntry(){
     pwd2:enc(pwd2.value||""),
     pwd3:enc(pwd3.value||"")
   };
-
-  if(editIndex!==null){
-    sites[editIndex]=d;
-    editIndex=null;
-    cancelBtn.classList.add("hide");
-    formTitle.innerText="➕ Add Website";
-  }else sites.push(d);
-
-  persist();
-  clearForm();
+  if(editIndex!==null){sites[editIndex]=d;editIndex=null;cancelBtn.classList.add("hide")}
+  else sites.push(d);
+  persist(); clearForm();
 }
-
-/* ================= EDIT ================= */
 function editRow(i){
-  let d=sites[i];
-  editIndex=i;
-  formTitle.innerText="✏ Edit Website";
-  site.value=d.site;
-  url.value=d.url||"";
-  uid.value=dec(d.uid);
-  cat.value=d.cat;
+  let d=sites[i]; editIndex=i;
+  site.value=d.site; url.value=d.url||"";
+  uid.value=dec(d.uid); cat.value=d.cat;
   togglePwdFields();
   pwd1.value=dec(d.pwd1);
   pwd2.value=dec(d.pwd2||"");
   pwd3.value=dec(d.pwd3||"");
   cancelBtn.classList.remove("hide");
-  window.scrollTo({top:0,behavior:"smooth"});
 }
+function cancelEdit(){editIndex=null;clearForm();cancelBtn.classList.add("hide")}
+function clearForm(){site.value=url.value=uid.value=pwd1.value=pwd2.value=pwd3.value=""}
+function del(i){if(confirm("Delete?")){sites.splice(i,1);persist()}}
 
-/* ================= CANCEL ================= */
-function cancelEdit(){
-  editIndex=null;
-  formTitle.innerText="➕ Add Website";
-  clearForm();
-  cancelBtn.classList.add("hide");
-}
-
-/* ================= CLEAR ================= */
-function clearForm(){
-  site.value=url.value=uid.value=pwd1.value=pwd2.value=pwd3.value="";
-}
-
-/* ================= DELETE ================= */
-function del(i){
-  if(confirm("Delete?")){
-    sites.splice(i,1);
-    persist();
-  }
-}
-
-/* ================= SEARCH ================= */
+/* ========== SEARCH & COPY ========== */
 function search(v){
   v=v.toLowerCase();
-  [...tbl.rows].forEach((r,i)=>{
-    if(i===0)return;
-    r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
-  });
+  [...tbl.rows].forEach((r,i)=>{if(i>0)r.style.display=r.innerText.toLowerCase().includes(v)?"":"none"})
 }
+const copy=t=>navigator.clipboard.writeText(t);
 
-/* ================= COPY ================= */
-const copy=t=>{navigator.clipboard.writeText(t);alert("Copied");};
-
-/* ================= SHOW / HIDE ================= */
+/* ========== SHOW/HIDE ========== */
 function toggleShow(id){
-  let el=document.getElementById(id);
-  el.type=el.type==="password"?"text":"password";
+  let e=document.getElementById(id);
+  e.type=e.type==="password"?"text":"password";
 }
 
-/* ================= EXPORT / IMPORT ================= */
+/* ========== BACKUP ========== */
 function exportBackup(){
-  const payload={
-    version:1,
-    created:new Date().toISOString(),
-    data:enc(JSON.stringify(sites))
-  };
-  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
+  let b=new Blob([JSON.stringify({data:enc(JSON.stringify(sites))})],{type:"application/json"});
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(b);
   a.download="dashboard-backup.json";
   a.click();
 }
-
-function importBackup(file){
-  const r=new FileReader();
-  r.onload=()=>{
-    try{
-      const o=JSON.parse(r.result);
-      sites=JSON.parse(dec(o.data));
-      persist();
-      alert("Backup restored");
-    }catch(e){
-      alert("Invalid backup");
-    }
-  };
-  r.readAsText(file);
+function importBackup(f){
+  let r=new FileReader();
+  r.onload=()=>{sites=JSON.parse(dec(JSON.parse(r.result).data));persist()};
+  r.readAsText(f);
 }
 
-/* ================= RENDER ================= */
+/* ========== RENDER ========== */
 function render(){
   tbl.innerHTML=`
   <tr>
-    <th>Website</th>
+    <th>Website Name</th>
+    <th>Website Link</th>
     <th>Open</th>
     <th>User ID</th>
     <th>Passwords</th>
     <th>Action</th>
   </tr>`;
-
   sites.forEach((d,i)=>{
+    const openUrl=normalizeUrl(d.url||d.site);
     tbl.innerHTML+=`
-    <tr>
+    <tr ondblclick="window.open('${openUrl}','_blank')">
       <td>${d.site}</td>
-      <td>${d.url?`<a href="${d.url}" target="_blank">Open</a>`:"-"}</td>
+      <td><a href="${openUrl}" target="_blank">${openUrl}</a></td>
+      <td><a href="${openUrl}" target="_blank">🔗</a></td>
       <td class="copy" onclick="copy('${dec(d.uid)}')">${dec(d.uid)}</td>
       <td class="pass-row">
         Login:
         <input type="password" id="lp${i}" value="${dec(d.pwd1)}" readonly>
         <button class="btn gray" onclick="toggleShow('lp${i}')">Show</button>
         <button class="btn" onclick="copy('${dec(d.pwd1)}')">Copy</button><br>
-        ${d.pwd2?`
-        Profile:
+        ${d.pwd2?`Profile:
         <input type="password" id="pp${i}" value="${dec(d.pwd2)}" readonly>
         <button class="btn gray" onclick="toggleShow('pp${i}')">Show</button>
         <button class="btn" onclick="copy('${dec(d.pwd2)}')">Copy</button><br>`:""}
-        ${d.pwd3?`
-        Txn:
+        ${d.pwd3?`Txn:
         <input type="password" id="tp${i}" value="${dec(d.pwd3)}" readonly>
         <button class="btn gray" onclick="toggleShow('tp${i}')">Show</button>
         <button class="btn" onclick="copy('${dec(d.pwd3)}')">Copy</button>`:""}
