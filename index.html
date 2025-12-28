@@ -54,7 +54,7 @@ th{background:#020617}
 <button class="gray" onclick="openForgot()">Forgot Password</button>
 </div>
 
-<!-- FORGOT -->
+<!-- FORGOT PASSWORD -->
 <div class="card hide" id="forgotBox">
 <h3>🔁 Reset Password</h3>
 <input id="fpUser" placeholder="Username">
@@ -97,7 +97,11 @@ th{background:#020617}
 </div>
 
 <script>
-/* ===== ENCRYPT ===== */
+/* ================= DATA SAFETY ================= */
+// ❗ NEVER change this key
+const STORAGE_KEY = "SECURE_DASHBOARD_DATA_V1";
+
+/* ================= ENCRYPT ================= */
 const enc=t=>btoa(unescape(encodeURIComponent(t)));
 const dec=t=>decodeURIComponent(escape(atob(t)));
 
@@ -105,30 +109,49 @@ let currentUser=null;
 let sites=[];
 let editIndex=null;
 
-/* ===== AUTO LOGIN ===== */
+/* ================= LOAD DATA ================= */
+function loadData(){
+  const raw = localStorage.getItem(STORAGE_KEY+"_"+currentUser);
+  if(raw){
+    const parsed = JSON.parse(raw);
+    sites = parsed.data || [];
+  }else{
+    sites = [];
+  }
+}
+
+/* ================= SAVE DATA ================= */
+function persist(){
+  const payload = {version:1, data:sites};
+  localStorage.setItem(STORAGE_KEY+"_"+currentUser, JSON.stringify(payload));
+  render();
+}
+
+/* ================= AUTO LOGIN ================= */
 window.onload=()=>{
   let u=localStorage.getItem("rememberUser");
   let t=localStorage.getItem("rememberTime");
   if(u && t && (Date.now()-t)/(1000*60*60*24)<=30){
     currentUser=u;
-    sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
+    loadData();
     loginBox.classList.add("hide");
     dash.classList.remove("hide");
     render();
   }
 };
 
-/* ===== LOGIN ===== */
+/* ================= LOGIN ================= */
 function login(){
   let u=luser.value.trim(), p=lpass.value.trim();
   if(!u||!p) return alert("Fill all");
+
   let users=JSON.parse(localStorage.getItem("users")||"{}");
   if(!users[u]) users[u]=enc(p);
   if(dec(users[u])!==p) return alert("Wrong password");
 
   currentUser=u;
   localStorage.setItem("users",JSON.stringify(users));
-  sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
+  loadData();
 
   if(rememberMe.checked){
     localStorage.setItem("rememberUser",u);
@@ -141,14 +164,14 @@ function login(){
   render();
 }
 
-/* ===== LOGOUT ===== */
+/* ================= LOGOUT ================= */
 function logout(){
   localStorage.removeItem("rememberUser");
   localStorage.removeItem("rememberTime");
   location.reload();
 }
 
-/* ===== FORGOT ===== */
+/* ================= FORGOT ================= */
 function openForgot(){
   loginBox.classList.add("hide");
   forgotBox.classList.remove("hide");
@@ -168,13 +191,13 @@ function resetPassword(){
   closeForgot();
 }
 
-/* ===== CATEGORY ===== */
+/* ================= CATEGORY ================= */
 function togglePwdFields(){
   pwd2.classList.toggle("hide",!(cat.value==="Job"||cat.value==="Bank"));
   pwd3.classList.toggle("hide",!(cat.value==="Job"||cat.value==="Bank"));
 }
 
-/* ===== SAVE / UPDATE ===== */
+/* ================= SAVE / UPDATE ================= */
 function saveEntry(){
   let data={
     site:site.value,
@@ -198,7 +221,7 @@ function saveEntry(){
   clearForm();
 }
 
-/* ===== EDIT ===== */
+/* ================= EDIT ================= */
 function editRow(i){
   let d=sites[i];
   editIndex=i;
@@ -214,7 +237,7 @@ function editRow(i){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
-/* ===== CANCEL ===== */
+/* ================= CANCEL ================= */
 function cancelEdit(){
   editIndex=null;
   formTitle.innerText="➕ Add Website";
@@ -222,12 +245,12 @@ function cancelEdit(){
   cancelBtn.classList.add("hide");
 }
 
-/* ===== CLEAR ===== */
+/* ================= CLEAR ================= */
 function clearForm(){
   site.value=uid.value=pwd1.value=pwd2.value=pwd3.value="";
 }
 
-/* ===== DELETE ===== */
+/* ================= DELETE ================= */
 function del(i){
   if(confirm("Delete?")){
     sites.splice(i,1);
@@ -235,13 +258,7 @@ function del(i){
   }
 }
 
-/* ===== SAVE STORAGE ===== */
-function persist(){
-  localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
-  render();
-}
-
-/* ===== SEARCH ===== */
+/* ================= SEARCH ================= */
 function search(v){
   v=v.toLowerCase();
   [...tbl.rows].forEach((r,i)=>{
@@ -250,16 +267,16 @@ function search(v){
   });
 }
 
-/* ===== COPY ===== */
+/* ================= COPY ================= */
 const copy=t=>{navigator.clipboard.writeText(t);alert("Copied");};
 
-/* ===== SHOW / HIDE ===== */
+/* ================= SHOW / HIDE ================= */
 function toggleShow(id){
   let el=document.getElementById(id);
   el.type = el.type==="password" ? "text" : "password";
 }
 
-/* ===== RENDER ===== */
+/* ================= RENDER ================= */
 function render(){
   tbl.innerHTML=`
   <tr>
@@ -273,10 +290,7 @@ function render(){
     tbl.innerHTML+=`
     <tr>
       <td>${d.site}</td>
-
-      <td class="copy" onclick="copy('${dec(d.uid)}')">
-        ${dec(d.uid)}
-      </td>
+      <td class="copy" onclick="copy('${dec(d.uid)}')">${dec(d.uid)}</td>
 
       <td class="pass-row">
         Login:
@@ -285,19 +299,19 @@ function render(){
         <button class="btn" onclick="copy('${dec(d.pwd1)}')">Copy</button>
         <br>
 
-        ${d.pwd2 ? `
+        ${d.pwd2?`
         Profile:
         <input type="password" id="pp${i}" value="${dec(d.pwd2)}" readonly>
         <button class="btn gray" onclick="toggleShow('pp${i}')">Show</button>
         <button class="btn" onclick="copy('${dec(d.pwd2)}')">Copy</button>
-        <br>` : ""}
+        <br>`:""}
 
-        ${d.pwd3 ? `
+        ${d.pwd3?`
         Txn:
         <input type="password" id="tp${i}" value="${dec(d.pwd3)}" readonly>
         <button class="btn gray" onclick="toggleShow('tp${i}')">Show</button>
         <button class="btn" onclick="copy('${dec(d.pwd3)}')">Copy</button>
-        ` : ""}
+        `:""}
       </td>
 
       <td>
