@@ -5,55 +5,50 @@
 <title>Secure Website Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- PWA -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#020617">
-
 <style>
 body{
-    margin:0;
-    font-family:Arial,Helvetica,sans-serif;
-    background:#0f172a;
-    color:#e5e7eb;
+  margin:0;
+  font-family:Arial,Helvetica,sans-serif;
+  background:#0f172a;
+  color:#e5e7eb;
 }
-h2,h3{margin:10px 0}
 .container{max-width:1000px;margin:auto;padding:15px}
 .card{
-    background:#020617;
-    padding:15px;
-    border-radius:10px;
-    margin-bottom:15px;
-    box-shadow:0 0 10px rgba(0,0,0,.6);
+  background:#020617;
+  padding:15px;
+  border-radius:10px;
+  margin-bottom:15px;
+  box-shadow:0 0 10px rgba(0,0,0,.6);
 }
+h2,h3{margin:10px 0}
 input,select,button{
-    width:100%;
-    padding:10px;
-    margin:6px 0;
-    border-radius:6px;
-    border:none;
-    outline:none;
+  width:100%;
+  padding:10px;
+  margin:6px 0;
+  border-radius:6px;
+  border:none;
 }
 input,select{
-    background:#020617;
-    color:#fff;
-    border:1px solid #334155;
+  background:#020617;
+  color:#fff;
+  border:1px solid #334155;
 }
 button{
-    background:#2563eb;
-    color:#fff;
-    cursor:pointer;
-    font-weight:bold;
+  background:#2563eb;
+  color:#fff;
+  font-weight:bold;
+  cursor:pointer;
 }
 button:hover{background:#1d4ed8}
 table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:10px;
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
 }
 th,td{
-    border:1px solid #334155;
-    padding:8px;
-    text-align:center;
+  border:1px solid #334155;
+  padding:8px;
+  text-align:center;
 }
 th{background:#020617}
 a{color:#38bdf8;text-decoration:none}
@@ -68,208 +63,173 @@ a{color:#38bdf8;text-decoration:none}
 
 <!-- LOGIN -->
 <div class="card" id="loginBox">
-<h2>🔐 Secure Login</h2>
-<input id="luser" placeholder="Username">
-<input id="lpass" type="password" placeholder="Password">
-<label class="small">
-<input type="checkbox" id="rememberMe"> Remember Me (30 days)
-</label>
-<button onclick="login()">Login / Register</button>
-<p class="small">First time → auto register</p>
+  <h2>🔐 Admin Login</h2>
+  <input id="luser" placeholder="Username">
+  <input id="lpass" type="password" placeholder="Password">
+  <label class="small">
+    <input type="checkbox" id="rememberMe"> Remember Me (30 Days)
+  </label>
+  <button onclick="login()">Login / Register</button>
 </div>
 
 <!-- DASHBOARD -->
 <div class="card hide" id="dash">
-<h2>📌 Personal Website Manager</h2>
+  <h2>📌 Personal Website Manager</h2>
 
-<div class="card">
-<h3>➕ New Website Add Kare</h3>
-<input id="site" placeholder="Website Name">
-<input id="url" placeholder="Website URL (https://...)">
-<input id="uid" placeholder="User ID">
-<input id="pwd" placeholder="Password">
-<select id="cat">
-<option>Govt</option>
-<option>Private</option>
-<option>Bank</option>
-<option>Other</option>
-</select>
-<button onclick="addSite()">Save</button>
-</div>
+  <div class="card">
+    <h3>➕ New Website Add</h3>
+    <input id="site" placeholder="Website Name">
+    <input id="url" placeholder="Website URL (https://...)">
+    <input id="uid" placeholder="User ID (click to copy later)">
+    <input id="pwd" placeholder="Password (click to copy later)">
+    <select id="cat">
+      <option>Govt</option>
+      <option>Private</option>
+      <option>Bank</option>
+      <option>Other</option>
+    </select>
+    <button onclick="addSite()">Save</button>
+  </div>
 
-<input placeholder="🔍 Search Website" onkeyup="search(this.value)">
+  <input placeholder="🔍 Search" onkeyup="search(this.value)">
 
-<table id="tbl"></table>
+  <table id="tbl"></table>
 
-<button onclick="exportData()">⬆ Export Backup</button>
-<input type="file" onchange="importData(this)">
-
-<button style="background:#dc2626" onclick="logout()">Logout</button>
+  <button style="background:#dc2626" onclick="logout()">Logout</button>
 </div>
 
 </div>
-
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* 🔥 FIREBASE CONFIG (APNA CONFIG PASTE KARO) */
-firebase.initializeApp({
-  apiKey: "PASTE",
-  authDomain: "PASTE",
-  projectId: "PASTE"
-});
-const db = firebase.firestore();
-
-/* ENCRYPTION */
+/* ---------- BASIC ENCRYPTION ---------- */
 function enc(t){return btoa(unescape(encodeURIComponent(t)))}
 function dec(t){return decodeURIComponent(escape(atob(t)))}
 
+/* ---------- GLOBAL ---------- */
 let currentUser=null;
 let sites=[];
 
-/* AUTO LOGIN (30 DAYS) */
+/* ---------- AUTO LOGIN (30 DAYS) ---------- */
 window.onload=function(){
-let u=localStorage.getItem("rememberUser");
-let t=localStorage.getItem("loginTime");
-if(u && t && (Date.now()-t)/(1000*60*60*24)<=30){
-currentUser=u;
-syncLoad();
-}
-}
-
-/* LOGIN */
-function login(){
-let u=luser.value.trim(), p=lpass.value.trim();
-if(!u||!p)return alert("Username & Password likhiye");
-
-let users=JSON.parse(localStorage.getItem("users")||"{}");
-
-if(!users[u]){
-users[u]=enc(p);
-localStorage.setItem("users",JSON.stringify(users));
-}
-
-if(dec(users[u])!==p) return alert("Wrong Password");
-
-currentUser=u;
-
-if(rememberMe.checked){
-localStorage.setItem("rememberUser",u);
-localStorage.setItem("loginTime",Date.now());
-}
-
-syncLoad();
-}
-
-/* CLOUD LOAD */
-function syncLoad(){
-db.collection("dashboards").doc(currentUser).get().then(d=>{
-sites=d.exists?d.data().data:[];
-localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
-loginBox.classList.add("hide");
-dash.classList.remove("hide");
-render();
-});
-}
-
-/* SAVE (LOCAL + CLOUD) */
-function save(){
-localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
-db.collection("dashboards").doc(currentUser).set({data:sites});
-}
-
-/* LOGOUT */
-function logout(){
-localStorage.removeItem("rememberUser");
-localStorage.removeItem("loginTime");
-currentUser=null;
-dash.classList.add("hide");
-loginBox.classList.remove("hide");
-}
-
-/* ADD */
-function addSite(){
-sites.push({
-site:site.value,
-url:url.value,
-uid:enc(uid.value),
-pwd:enc(pwd.value),
-cat:cat.value
-});
-save(); render();
-site.value=url.value=uid.value=pwd.value="";
-}
-
-/* DELETE */
-function del(i){
-if(confirm("Delete kare?")){
-sites.splice(i,1);
-save(); render();
-}
-}
-
-/* SEARCH */
-function search(v){
-v=v.toLowerCase();
-[...tbl.rows].forEach((r,i)=>{
-if(i===0)return;
-r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
-});
-}
-
-/* AUTO COPY */
-function autoCopy(t){
-navigator.clipboard.writeText(t);
-alert("Copied ✔");
-}
-
-/* EXPORT */
-function exportData(){
-let data=enc(JSON.stringify(sites));
-let blob=new Blob([data]);
-let a=document.createElement("a");
-a.href=URL.createObjectURL(blob);
-a.download="dashboard-backup.enc";
-a.click();
-}
-
-/* IMPORT */
-function importData(inp){
-let f=inp.files[0]; if(!f)return;
-let r=new FileReader();
-r.onload=()=>{
-sites=JSON.parse(dec(r.result));
-save(); render();
-alert("Backup Restored ✔");
+  let u=localStorage.getItem("rememberUser");
+  let t=localStorage.getItem("rememberTime");
+  if(u && t){
+    let days=(Date.now()-t)/(1000*60*60*24);
+    if(days<=30){
+      currentUser=u;
+      sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
+      loginBox.classList.add("hide");
+      dash.classList.remove("hide");
+      render();
+    }else{
+      localStorage.removeItem("rememberUser");
+      localStorage.removeItem("rememberTime");
+    }
+  }
 };
-r.readAsText(f);
+
+/* ---------- LOGIN ---------- */
+function login(){
+  let u=luser.value.trim();
+  let p=lpass.value.trim();
+  if(!u||!p){alert("Username & Password likhiye");return;}
+
+  let users=JSON.parse(localStorage.getItem("users")||"{}");
+
+  if(!users[u]){
+    users[u]=enc(p);
+    localStorage.setItem("users",JSON.stringify(users));
+  }
+
+  if(dec(users[u])!==p){alert("Wrong Password");return;}
+
+  currentUser=u;
+  sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
+
+  if(rememberMe.checked){
+    localStorage.setItem("rememberUser",u);
+    localStorage.setItem("rememberTime",Date.now());
+  }
+
+  loginBox.classList.add("hide");
+  dash.classList.remove("hide");
+  render();
 }
 
-/* RENDER */
+/* ---------- LOGOUT ---------- */
+function logout(){
+  localStorage.removeItem("rememberUser");
+  localStorage.removeItem("rememberTime");
+  currentUser=null;
+  dash.classList.add("hide");
+  loginBox.classList.remove("hide");
+}
+
+/* ---------- ADD ---------- */
+function addSite(){
+  sites.push({
+    site:site.value,
+    url:url.value,
+    uid:enc(uid.value),
+    pwd:enc(pwd.value),
+    cat:cat.value
+  });
+  save(); render();
+  site.value=url.value=uid.value=pwd.value="";
+}
+
+/* ---------- SAVE ---------- */
+function save(){
+  localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
+}
+
+/* ---------- DELETE ---------- */
+function del(i){
+  if(confirm("Delete kare?")){
+    sites.splice(i,1);
+    save(); render();
+  }
+}
+
+/* ---------- SEARCH ---------- */
+function search(v){
+  v=v.toLowerCase();
+  [...tbl.rows].forEach((r,i)=>{
+    if(i===0)return;
+    r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
+  });
+}
+
+/* ---------- AUTO COPY ---------- */
+function autoCopy(t){
+  navigator.clipboard.writeText(t);
+  alert("Copied ✔");
+}
+
+/* ---------- RENDER ---------- */
 function render(){
-tbl.innerHTML=`<tr>
-<th>Website</th><th>Open</th><th>ID (Click)</th><th>Password (Click)</th><th>Category</th><th>Action</th>
-</tr>`;
-sites.forEach((d,i)=>{
-tbl.innerHTML+=`
-<tr>
-<td>${d.site}</td>
-<td><a href="${d.url}" target="_blank">Open</a></td>
-<td class="copy" onclick="autoCopy('${dec(d.uid)}')">${dec(d.uid)}</td>
-<td onclick="autoCopy('${dec(d.pwd)}')">
-<input type="password" value="${dec(d.pwd)}" readonly>
-</td>
-<td>${d.cat}</td>
-<td><button onclick="del(${i})">❌</button></td>
-</tr>`;
-});
-}
-
-/* PWA */
-if("serviceWorker" in navigator){
-navigator.serviceWorker.register("service-worker.js");
+  tbl.innerHTML=`
+  <tr>
+    <th>Website</th>
+    <th>Open</th>
+    <th>ID (Click)</th>
+    <th>Password (Click)</th>
+    <th>Category</th>
+    <th>Action</th>
+  </tr>`;
+  sites.forEach((d,i)=>{
+    tbl.innerHTML+=`
+    <tr>
+      <td>${d.site}</td>
+      <td><a href="${d.url}" target="_blank">Open</a></td>
+      <td class="copy" onclick="autoCopy('${dec(d.uid)}')">${dec(d.uid)}</td>
+      <td onclick="autoCopy('${dec(d.pwd)}')">
+        <input type="password" value="${dec(d.pwd)}" readonly>
+      </td>
+      <td>${d.cat}</td>
+      <td><button onclick="del(${i})">❌</button></td>
+    </tr>`;
+  });
 }
 </script>
 
