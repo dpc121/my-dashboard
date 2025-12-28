@@ -10,57 +10,25 @@
 
 <style>
 body{
-  margin:0;
-  font-family:Arial,Helvetica,sans-serif;
-  background:#0f172a;
-  color:#e5e7eb;
+  margin:0;font-family:Arial;background:#0f172a;color:#e5e7eb
 }
-.container{max-width:1000px;margin:auto;padding:15px}
-.card{
-  background:#020617;
-  padding:15px;
-  border-radius:10px;
-  margin-bottom:15px;
-  box-shadow:0 0 10px rgba(0,0,0,.6);
-}
-h2,h3{margin:10px 0}
+.container{max-width:1100px;margin:auto;padding:15px}
+.card{background:#020617;padding:15px;border-radius:10px;margin-bottom:15px}
 input,select,button{
-  padding:8px;
-  margin:4px;
-  border-radius:6px;
-  border:none;
+  padding:8px;margin:4px;border-radius:6px;border:none
 }
-input,select{
-  background:#020617;
-  color:#fff;
-  border:1px solid #334155;
-}
-button{
-  background:#2563eb;
-  color:#fff;
-  font-weight:bold;
-  cursor:pointer;
-}
-button:hover{background:#1d4ed8}
-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:10px;
-}
-th,td{
-  border:1px solid #334155;
-  padding:8px;
-  text-align:center;
-  vertical-align:top;
-}
+input,select{background:#020617;color:#fff;border:1px solid #334155}
+button{background:#2563eb;color:#fff;font-weight:bold;cursor:pointer}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #334155;padding:6px;text-align:center}
 th{background:#020617}
+.hide{display:none}
+.btn{padding:5px 8px;font-size:12px}
+.red{background:#dc2626}
+.green{background:#16a34a}
+.gray{background:#475569}
 .copy{cursor:pointer;color:#38bdf8}
 .small{font-size:12px;color:#94a3b8}
-.hide{display:none}
-.btn-sm{padding:5px 8px;font-size:12px;margin:2px}
-.red{background:#dc2626}
-.gray{background:#475569}
-.green{background:#16a34a}
 </style>
 </head>
 
@@ -69,192 +37,188 @@ th{background:#020617}
 
 <!-- LOGIN -->
 <div class="card" id="loginBox">
-  <h2>🔐 Admin Login</h2>
-  <input id="luser" placeholder="Username">
-  <input id="lpass" type="password" placeholder="Password">
-  <label class="small">
-    <input type="checkbox" id="rememberMe"> Remember Me (30 Days)
-  </label>
-  <br>
-  <button onclick="login()">Login / Register</button>
+<h2>🔐 Admin Login</h2>
+<input id="luser" placeholder="Username">
+<input id="lpass" type="password" placeholder="Password">
+<label class="small"><input type="checkbox" id="rememberMe"> Remember Me (30 Days)</label><br>
+<button onclick="login()">Login / Register</button>
+<button class="gray" onclick="showReset()">Forgot Password</button>
+</div>
+
+<!-- RESET -->
+<div class="card hide" id="resetBox">
+<h3>🔁 Password Reset (WhatsApp OTP)</h3>
+<p class="small">OTP WhatsApp पर भेजें: <b id="wa"></b></p>
+<input id="otpInput" placeholder="Enter OTP">
+<input id="newPass" placeholder="New Password">
+<button onclick="verifyOTP()">Verify & Reset</button>
+<button class="gray" onclick="hideReset()">Cancel</button>
 </div>
 
 <!-- DASHBOARD -->
 <div class="card hide" id="dash">
-  <h2>📌 Personal Website Manager</h2>
+<h2>📌 Website Manager</h2>
 
-  <div class="card">
-    <h3>➕ New Website Add</h3>
-    <input id="site" placeholder="Website Name">
-    <input id="url" placeholder="Website URL">
-    <input id="uid" placeholder="User ID">
-    <input id="pwd" placeholder="Password">
-    <select id="cat">
-      <option>Govt</option>
-      <option>Private</option>
-      <option>Bank</option>
-      <option>Other</option>
-    </select>
-    <br>
-    <button onclick="addSite()">Save</button>
-  </div>
+<div class="card">
+<h3>➕ Add Website</h3>
+<input id="site" placeholder="Website Name">
+<input id="url" placeholder="URL">
+<input id="uid" placeholder="User ID">
+<select id="cat" onchange="togglePwdFields()">
+<option>Govt</option>
+<option>Job</option>
+<option>Bank</option>
+<option>Other</option>
+</select>
 
-  <input placeholder="🔍 Search Website" onkeyup="search(this.value)">
+<div id="pwdBlock">
+<input id="pwd1" placeholder="Login Password">
+<input id="pwd2" placeholder="Profile Password" class="hide">
+<input id="pwd3" placeholder="Transaction Password" class="hide">
+</div>
 
-  <table id="tbl"></table>
+<button onclick="addSite()">Save</button>
+</div>
 
-  <button class="red" onclick="logout()">Logout</button>
+<input placeholder="🔍 Search" onkeyup="search(this.value)">
+<table id="tbl"></table>
+
+<button class="red" onclick="logout()">Logout</button>
 </div>
 
 </div>
 
 <script>
-/* ===== Encryption ===== */
-function enc(t){return btoa(unescape(encodeURIComponent(t)))}
-function dec(t){return decodeURIComponent(escape(atob(t)))}
+/* ================= CONFIG ================= */
+const ADMIN_WHATSAPP = "+91XXXXXXXXXX";
 
-let currentUser=null;
-let sites=[];
+/* ================= ENCRYPT ================= */
+const enc=t=>btoa(unescape(encodeURIComponent(t)));
+const dec=t=>decodeURIComponent(escape(atob(t)));
 
-/* ===== Auto Login ===== */
-window.onload=function(){
-  let u=localStorage.getItem("rememberUser");
-  let t=localStorage.getItem("rememberTime");
-  if(u && t){
-    let d=(Date.now()-t)/(1000*60*60*24);
-    if(d<=30){
-      currentUser=u;
-      sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
-      loginBox.classList.add("hide");
-      dash.classList.remove("hide");
-      render();
-    }
-  }
+let currentUser=null, sites=[], otp=null, otpTime=0;
+
+/* ================= AUTO LOGIN ================= */
+window.onload=()=>{
+let u=localStorage.getItem("rememberUser");
+let t=localStorage.getItem("rememberTime");
+if(u&&t&&(Date.now()-t)/(1000*60*60*24)<=30){
+currentUser=u;
+sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
+loginBox.classList.add("hide");
+dash.classList.remove("hide");
+render();
+}
 };
 
-/* ===== Login ===== */
+/* ================= LOGIN ================= */
 function login(){
-  let u=luser.value.trim(), p=lpass.value.trim();
-  if(!u||!p) return alert("Username & Password likhiye");
-
-  let users=JSON.parse(localStorage.getItem("users")||"{}");
-  if(!users[u]){
-    users[u]=enc(p);
-    localStorage.setItem("users",JSON.stringify(users));
-  }
-  if(dec(users[u])!==p) return alert("Wrong Password");
-
-  currentUser=u;
-  sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
-
-  if(rememberMe.checked){
-    localStorage.setItem("rememberUser",u);
-    localStorage.setItem("rememberTime",Date.now());
-  }
-
-  loginBox.classList.add("hide");
-  dash.classList.remove("hide");
-  render();
+let u=luser.value.trim(), p=lpass.value.trim();
+if(!u||!p)return alert("Fill all");
+let users=JSON.parse(localStorage.getItem("users")||"{}");
+if(!users[u]) users[u]=enc(p);
+if(dec(users[u])!==p)return alert("Wrong password");
+currentUser=u;
+localStorage.setItem("users",JSON.stringify(users));
+sites=JSON.parse(localStorage.getItem("sites_"+u)||"[]");
+if(rememberMe.checked){
+localStorage.setItem("rememberUser",u);
+localStorage.setItem("rememberTime",Date.now());
+}
+loginBox.classList.add("hide");dash.classList.remove("hide");
+render();
 }
 
-/* ===== Logout ===== */
+/* ================= LOGOUT ================= */
 function logout(){
-  localStorage.removeItem("rememberUser");
-  localStorage.removeItem("rememberTime");
-  currentUser=null;
-  dash.classList.add("hide");
-  loginBox.classList.remove("hide");
+localStorage.removeItem("rememberUser");
+localStorage.removeItem("rememberTime");
+currentUser=null;
+dash.classList.add("hide");loginBox.classList.remove("hide");
 }
 
-/* ===== Add ===== */
+/* ================= RESET ================= */
+function showReset(){
+otp=Math.floor(100000+Math.random()*900000);
+otpTime=Date.now();
+wa.innerText=ADMIN_WHATSAPP+" | OTP: "+otp;
+loginBox.classList.add("hide");resetBox.classList.remove("hide");
+}
+function hideReset(){
+resetBox.classList.add("hide");loginBox.classList.remove("hide");
+}
+function verifyOTP(){
+if(Date.now()-otpTime>120000)return alert("OTP expired");
+if(otpInput.value!=otp)return alert("Wrong OTP");
+let users=JSON.parse(localStorage.getItem("users")||"{}");
+users[luser.value]=enc(newPass.value);
+localStorage.setItem("users",JSON.stringify(users));
+alert("Password Reset Success");
+hideReset();
+}
+
+/* ================= CATEGORY ================= */
+function togglePwdFields(){
+let c=cat.value;
+pwd2.classList.toggle("hide",!(c=="Job"||c=="Bank"));
+pwd3.classList.toggle("hide",!(c=="Job"||c=="Bank"));
+}
+
+/* ================= ADD ================= */
 function addSite(){
-  sites.push({
-    site:site.value,
-    url:url.value,
-    uid:enc(uid.value),
-    pwd:enc(pwd.value),
-    cat:cat.value
-  });
-  save(); render();
-  site.value=url.value=uid.value=pwd.value="";
+sites.push({
+site:site.value,url:url.value,uid:enc(uid.value),
+cat:cat.value,
+pwd1:enc(pwd1.value),
+pwd2:enc(pwd2.value||""),
+pwd3:enc(pwd3.value||"")
+});
+save();render();
+site.value=url.value=uid.value=pwd1.value=pwd2.value=pwd3.value="";
 }
 
+/* ================= SAVE ================= */
 function save(){
-  localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
+localStorage.setItem("sites_"+currentUser,JSON.stringify(sites));
 }
 
-/* ===== Delete ===== */
-function del(i){
-  if(confirm("Delete kare?")){
-    sites.splice(i,1);
-    save(); render();
-  }
-}
-
-/* ===== Search ===== */
+/* ================= SEARCH ================= */
 function search(v){
-  v=v.toLowerCase();
-  [...tbl.rows].forEach((r,i)=>{
-    if(i===0)return;
-    r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
-  });
+v=v.toLowerCase();
+[...tbl.rows].forEach((r,i)=>{
+if(i===0)return;
+r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
+});
 }
 
-/* ===== Copy ===== */
-function autoCopy(t){
-  navigator.clipboard.writeText(t);
-  alert("Copied ✔");
-}
+/* ================= COPY ================= */
+const copy=t=>{navigator.clipboard.writeText(t);alert("Copied");};
 
-/* ===== Show / Hide ===== */
-function togglePwd(i){
-  let f=document.getElementById("pwd_"+i);
-  f.type = f.type==="password"?"text":"password";
-}
-
-/* ===== Edit ===== */
-function editPwd(i){
-  let n=prompt("New Password dijiye:");
-  if(!n) return;
-  sites[i].pwd=enc(n);
-  save(); render();
-}
-
-/* ===== Render ===== */
+/* ================= RENDER ================= */
 function render(){
-  tbl.innerHTML=`
-  <tr>
-    <th>Website</th>
-    <th>Open</th>
-    <th>ID</th>
-    <th>Password</th>
-    <th>Category</th>
-    <th>Action</th>
-  </tr>`;
-
-  sites.forEach((d,i)=>{
-    tbl.innerHTML+=`
-    <tr>
-      <td>${d.site}</td>
-      <td><a href="${d.url}" target="_blank">Open</a></td>
-      <td class="copy" onclick="autoCopy('${dec(d.uid)}')">${dec(d.uid)}</td>
-      <td>
-        <input id="pwd_${i}" type="password" value="${dec(d.pwd)}" readonly><br>
-        <button class="btn-sm gray" onclick="togglePwd(${i})">Show</button>
-        <button class="btn-sm green" onclick="editPwd(${i})">Edit</button>
-        <button class="btn-sm" onclick="autoCopy('${dec(d.pwd)}')">Copy</button>
-      </td>
-      <td>${d.cat}</td>
-      <td><button class="btn-sm red" onclick="del(${i})">❌</button></td>
-    </tr>`;
-  });
+tbl.innerHTML=`
+<tr>
+<th>Website</th><th>ID</th><th>Passwords</th><th>Action</th>
+</tr>`;
+sites.forEach((d,i)=>{
+tbl.innerHTML+=`
+<tr>
+<td>${d.site}</td>
+<td class="copy" onclick="copy('${dec(d.uid)}')">${dec(d.uid)}</td>
+<td>
+Login: <span class="copy" onclick="copy('${dec(d.pwd1)}')">Copy</span><br>
+${d.pwd2?`Profile: <span class="copy" onclick="copy('${dec(d.pwd2)}')">Copy</span><br>`:""}
+${d.pwd3?`Txn: <span class="copy" onclick="copy('${dec(d.pwd3)}')">Copy</span>`:""}
+</td>
+<td><button class="btn red" onclick="sites.splice(${i},1);save();render()">❌</button></td>
+</tr>`;
+});
 }
 
-/* ===== PWA ===== */
+/* ================= PWA ================= */
 if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("service-worker.js");
+navigator.serviceWorker.register("service-worker.js");
 }
 </script>
-
 </body>
 </html>
